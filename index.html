@@ -59,6 +59,25 @@
             background: #87CEEB;
         }
 
+        .speedometer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #10b981;
+            border: 2px solid #10b981;
+            font-family: monospace;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
         .controls {
             background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
             padding: 25px;
@@ -235,7 +254,12 @@
     <p class="subtitle">The Legendary Motorcycle Daredevil</p>
 
     <div class="game-container">
-        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas" width="1000" height="450"></canvas>
+            <div class="speedometer" id="speedometer">0 MPH</div>
+        </div>
+
+        </div>
 
         <div class="controls">
             <div class="control-group">
@@ -305,6 +329,8 @@
         const CAR_SPACING = 5;
         const RAMP_WIDTH = 80;
         const RAMP_BASE_HEIGHT = 10;
+        const RUNWAY_LENGTH = 300; // pixels for the runway
+        const RUNWAY_START = -250; // start off-screen to the left
 
         // Game State
         let gameState = {
@@ -312,12 +338,15 @@
             angle: 30,
             numCars: 5,
             isJumping: false,
+            isAccelerating: false,
+            currentSpeed: 0,
             motorcycle: null,
             jumpComplete: false,
             trailPoints: [],
             particles: [],
             clouds: [],
-            crowdWave: 0
+            crowdWave: 0,
+            cameraOffset: 0
         };
 
         // Initialize clouds
@@ -393,6 +422,68 @@
                 ctx.moveTo(i, GROUND_Y - 5);
                 ctx.lineTo(i + 2, GROUND_Y - 5 - height);
                 ctx.stroke();
+            }
+        }
+
+        // Draw runway
+        function drawRunway(startX, endX) {
+            const offset = gameState.cameraOffset;
+            const drawStartX = startX - offset;
+            const drawEndX = endX - offset;
+
+            // Asphalt runway
+            ctx.fillStyle = '#2d2d2d';
+            ctx.fillRect(drawStartX, GROUND_Y - 5, drawEndX - drawStartX, 15);
+
+            // Center line (dashed)
+            ctx.strokeStyle = '#feca57';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 15]);
+            ctx.beginPath();
+            ctx.moveTo(drawStartX, GROUND_Y + 2);
+            ctx.lineTo(drawEndX, GROUND_Y + 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Edge lines
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(drawStartX, GROUND_Y - 5);
+            ctx.lineTo(drawEndX, GROUND_Y - 5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(drawStartX, GROUND_Y + 10);
+            ctx.lineTo(drawEndX, GROUND_Y + 10);
+            ctx.stroke();
+
+            // Distance markers
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px Arial';
+            for (let i = 0; i <= RUNWAY_LENGTH; i += 50) {
+                const markerX = drawStartX + i + 250; // offset from RUNWAY_START
+                if (markerX > 0 && markerX < canvas.width) {
+                    ctx.fillText(i + 'm', markerX, GROUND_Y + 25);
+                }
+            }
+        }
+
+        // Update speedometer display
+        function updateSpeedometer() {
+            const speedometer = document.getElementById('speedometer');
+            speedometer.textContent = Math.round(gameState.currentSpeed) + ' MPH';
+
+            // Change color based on speed
+            const ratio = gameState.currentSpeed / gameState.speed;
+            if (ratio < 0.5) {
+                speedometer.style.color = '#ef4444';
+                speedometer.style.borderColor = '#ef4444';
+            } else if (ratio < 0.9) {
+                speedometer.style.color = '#feca57';
+                speedometer.style.borderColor = '#feca57';
+            } else {
+                speedometer.style.color = '#10b981';
+                speedometer.style.borderColor = '#10b981';
             }
         }
 
@@ -803,12 +894,15 @@
 
             // Draw background
             drawSky();
-            drawStadium();
-            drawCrowd();
             drawGround();
 
-            // Calculate positions
-            const takeoffX = 50;
+            // Calculate positions with camera offset
+            const offset = gameState.cameraOffset;
+            const takeoffX = 250 - offset; // Ramp is at x=250 in world coordinates
+
+            // Draw runway (from off-screen left to the ramp)
+            drawRunway(RUNWAY_START, 250);
+
             const takeoffEnd = drawTakeoffRamp(takeoffX);
 
             const carsStartX = takeoffX + RAMP_WIDTH + 20;
@@ -823,16 +917,15 @@
             // Draw motorcycle
             if (gameState.motorcycle) {
                 drawMotorcycle(
-                    gameState.motorcycle.x,
+                    gameState.motorcycle.screenX || gameState.motorcycle.x - offset,
                     gameState.motorcycle.y,
                     gameState.motorcycle.angle
                 );
             } else {
-                // Draw motorcycle at starting position
-                const rampHeight = getRampHeight();
-                const startX = takeoffX + 20;
-                const startY = GROUND_Y - (20 / RAMP_WIDTH) * rampHeight - 15;
-                drawMotorcycle(startX, startY, -gameState.angle * Math.PI / 180);
+                // Draw motorcycle at starting position on runway
+                const startX = 50;
+                const startY = GROUND_Y - 18;
+                drawMotorcycle(startX, startY, 0);
             }
 
             // Update particles
@@ -841,39 +934,100 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Start jump animation
+        // Start jump animation - begins with acceleration phase
         function startJump() {
-            if (gameState.isJumping) return;
+            if (gameState.isJumping || gameState.isAccelerating) return;
 
-            gameState.isJumping = true;
+            gameState.isAccelerating = true;
             gameState.jumpComplete = false;
+            gameState.currentSpeed = 0;
             gameState.trailPoints = [];
             gameState.particles = [];
+            gameState.cameraOffset = 0;
             document.getElementById('jumpBtn').disabled = true;
             document.getElementById('result').className = '';
             document.getElementById('result').style.display = 'none';
 
-            const physics = calculateJump();
-            const rampHeight = getRampHeight();
-
-            // Starting position (at top of takeoff ramp)
-            const startX = 50 + RAMP_WIDTH;
-            const startY = GROUND_Y - rampHeight - 15;
+            // Starting position on runway (world coordinates)
+            const startWorldX = 0; // Start at beginning of visible runway
+            const startY = GROUND_Y - 18;
 
             gameState.motorcycle = {
-                x: startX,
+                x: startWorldX, // World x position
+                screenX: 50, // Screen x position (stays relatively fixed during acceleration)
                 y: startY,
-                vx: physics.vx * SCALE / 60, // Convert to pixels per frame
-                vy: -physics.vy * SCALE / 60,
-                angle: -gameState.angle * Math.PI / 180,
-                startX: startX,
-                startY: startY
+                vx: 0,
+                vy: 0,
+                angle: 0
             };
 
-            // Create takeoff particles
-            createParticles(startX, startY + 20, 20, '#feca57');
+            updateSpeedometer();
+            animateAcceleration();
+        }
 
-            animateJump();
+        // Animate the acceleration phase
+        function animateAcceleration() {
+            if (!gameState.motorcycle || !gameState.isAccelerating) return;
+
+            const m = gameState.motorcycle;
+            const targetSpeed = gameState.speed;
+            const rampWorldX = 250; // Ramp position in world coordinates
+
+            // Accelerate (increase speed gradually)
+            const accelerationRate = 0.5; // MPH per frame
+            gameState.currentSpeed = Math.min(gameState.currentSpeed + accelerationRate, targetSpeed);
+            updateSpeedometer();
+
+            // Convert current speed to pixels per frame
+            const speedPxPerFrame = (gameState.currentSpeed * 0.44704 * SCALE) / 60;
+            m.x += speedPxPerFrame;
+
+            // Update camera to follow motorcycle (keep bike at left side of screen)
+            if (m.x > 100) {
+                gameState.cameraOffset = m.x - 100;
+            }
+            m.screenX = m.x - gameState.cameraOffset;
+
+            // Create tire smoke particles occasionally during acceleration
+            if (gameState.currentSpeed < targetSpeed && Math.random() < 0.4) {
+                createParticles(m.screenX + 15, m.y + 10, 2, 'rgba(150,150,150,0.6)');
+            }
+
+            // Check if reached the ramp
+            if (m.x >= rampWorldX - 30) {
+                // Transition to jump phase
+                gameState.isAccelerating = false;
+                gameState.isJumping = true;
+
+                const physics = calculateJump();
+                const rampHeight = getRampHeight();
+
+                // Position at top of ramp
+                m.x = rampWorldX + RAMP_WIDTH;
+                m.y = GROUND_Y - rampHeight - 15;
+                m.vx = physics.vx * SCALE / 60;
+                m.vy = -physics.vy * SCALE / 60;
+                m.angle = -gameState.angle * Math.PI / 180;
+
+                // Freeze camera for the jump
+                gameState.cameraOffset = rampWorldX - 150;
+
+                // Create takeoff particles
+                createParticles(m.x - gameState.cameraOffset, m.y + 20, 20, '#feca57');
+
+                animateJump();
+                return;
+            }
+
+            // Animate going up the ramp
+            if (m.x >= rampWorldX - 30 && m.x < rampWorldX + RAMP_WIDTH) {
+                const rampProgress = (m.x - (rampWorldX - 30)) / (RAMP_WIDTH + 30);
+                const rampHeight = getRampHeight();
+                m.y = GROUND_Y - 18 - (rampProgress * rampHeight);
+                m.angle = -gameState.angle * Math.PI / 180;
+            }
+
+            requestAnimationFrame(animateAcceleration);
         }
 
         // Animate the jump
@@ -881,8 +1035,10 @@
             if (!gameState.motorcycle) return;
 
             const m = gameState.motorcycle;
+            const offset = gameState.cameraOffset;
             const rampHeight = getRampHeight();
-            const landingRampX = 50 + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
+            const rampWorldX = 250;
+            const landingRampX = rampWorldX + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
             const landingRampEndX = landingRampX + RAMP_WIDTH;
 
             // Update position
@@ -893,12 +1049,15 @@
             // Calculate angle based on velocity
             m.angle = Math.atan2(m.vy, m.vx);
 
+            // Update screen position
+            m.screenX = m.x - offset;
+
             // Add trail point
-            gameState.trailPoints.push({ x: m.x, y: m.y });
+            gameState.trailPoints.push({ x: m.screenX, y: m.y });
 
             // Create smoke particles occasionally
             if (Math.random() < 0.3) {
-                createParticles(m.x - 20, m.y + 10, 1, 'rgba(100,100,100,0.5)');
+                createParticles(m.screenX - 20, m.y + 10, 1, 'rgba(100,100,100,0.5)');
             }
 
             // Check landing conditions
@@ -915,7 +1074,7 @@
                     gameState.jumpComplete = true;
                     m.y = rampY;
 
-                    createParticles(m.x, m.y + 20, 30, '#10b981');
+                    createParticles(m.screenX, m.y + 20, 30, '#10b981');
                     showResult(true);
                     return;
                 }
@@ -927,7 +1086,7 @@
                 gameState.jumpComplete = true;
                 m.y = groundY;
 
-                createParticles(m.x, m.y + 20, 30, '#ef4444');
+                createParticles(m.screenX, m.y + 20, 30, '#ef4444');
                 showResult(false);
                 return;
             }
@@ -938,13 +1097,13 @@
                 gameState.jumpComplete = true;
                 m.y = groundY;
 
-                createParticles(m.x, m.y + 20, 30, '#10b981');
+                createParticles(m.screenX, m.y + 20, 30, '#10b981');
                 showResult(true);
                 return;
             }
 
             // Check if went off screen
-            if (m.x > canvas.width + 50 || m.y > canvas.height + 50) {
+            if (m.screenX > canvas.width + 50 || m.y > canvas.height + 50) {
                 gameState.isJumping = false;
                 showResult(false);
                 return;
@@ -972,13 +1131,17 @@
         // Reset game
         function resetGame() {
             gameState.isJumping = false;
+            gameState.isAccelerating = false;
             gameState.jumpComplete = false;
+            gameState.currentSpeed = 0;
             gameState.motorcycle = null;
             gameState.trailPoints = [];
             gameState.particles = [];
+            gameState.cameraOffset = 0;
             document.getElementById('jumpBtn').disabled = false;
             document.getElementById('result').className = '';
             document.getElementById('result').style.display = 'none';
+            updateSpeedometer();
         }
 
         // Event listeners
