@@ -340,6 +340,7 @@
             numCars: 5,
             isJumping: false,
             isAccelerating: false,
+            isLanding: false, // Riding out after landing
             currentSpeed: 0,
             motorcycle: null,
             jumpComplete: false,
@@ -1059,7 +1060,7 @@
 
         // Start jump animation - begins with acceleration phase
         function startJump() {
-            if (gameState.isJumping || gameState.isAccelerating) return;
+            if (gameState.isJumping || gameState.isAccelerating || gameState.isLanding) return;
 
             gameState.isAccelerating = true;
             gameState.jumpComplete = false;
@@ -1200,18 +1201,25 @@
                 const rampY = GROUND_Y - rampHeight * (1 - rampProgress) - 15;
 
                 if (m.y >= rampY) {
-                    // Successful landing!
+                    // Successful landing - transition to ride-out phase!
                     gameState.isJumping = false;
-                    gameState.jumpComplete = true;
+                    gameState.isLanding = true;
                     m.y = rampY;
 
-                    createParticles(m.screenX, m.y + 20, 30, '#10b981');
-                    showResult(true);
+                    // Keep horizontal velocity, set angle to match ramp
+                    const rampAngle = Math.atan2(rampHeight, LANDING_RAMP_WIDTH);
+                    m.angle = rampAngle;
+                    m.vy = 0;
+                    m.landingRampX = landingRampX;
+                    m.landingRampEndX = landingRampEndX;
+
+                    createParticles(m.screenX, m.y + 20, 20, '#10b981');
+                    animateLanding();
                     return;
                 }
             }
 
-            // Check if hit ground (failed)
+            // Check if hit ground (failed) - before the landing ramp
             if (m.y >= groundY && m.x < landingRampX) {
                 gameState.isJumping = false;
                 gameState.jumpComplete = true;
@@ -1222,14 +1230,18 @@
                 return;
             }
 
-            // Check if past landing ramp (on flat ground after)
+            // Check if past landing ramp and hits ground (still successful if angle is ok)
             if (m.x > landingRampEndX && m.y >= groundY) {
                 gameState.isJumping = false;
-                gameState.jumpComplete = true;
+                gameState.isLanding = true;
                 m.y = groundY;
+                m.angle = 0;
+                m.vy = 0;
+                m.landingRampX = landingRampX;
+                m.landingRampEndX = landingRampEndX;
 
-                createParticles(m.screenX, m.y + 20, 30, '#10b981');
-                showResult(true);
+                createParticles(m.screenX, m.y + 20, 20, '#10b981');
+                animateLanding();
                 return;
             }
 
@@ -1241,6 +1253,65 @@
             }
 
             requestAnimationFrame(animateJump);
+        }
+
+        // Animate the landing/ride-out phase
+        function animateLanding() {
+            if (!gameState.motorcycle || !gameState.isLanding) return;
+
+            const m = gameState.motorcycle;
+            const rampHeight = getRampHeight();
+            const groundY = GROUND_Y - 18;
+
+            // Decelerate gradually (like braking)
+            const deceleration = 0.15;
+            m.vx = Math.max(0, m.vx - deceleration);
+
+            // Update current speed display
+            gameState.currentSpeed = (m.vx * 60 / SCALE) / 0.44704; // Convert back to MPH
+            updateSpeedometer();
+
+            // Move forward
+            m.x += m.vx;
+
+            // Update screen position
+            m.screenX = m.x - gameState.cameraOffset;
+
+            // If still on landing ramp, follow the ramp surface
+            if (m.x >= m.landingRampX && m.x <= m.landingRampEndX) {
+                const rampProgress = (m.x - m.landingRampX) / LANDING_RAMP_WIDTH;
+                m.y = GROUND_Y - rampHeight * (1 - rampProgress) - 18;
+                const rampAngle = Math.atan2(rampHeight, LANDING_RAMP_WIDTH);
+                m.angle = rampAngle;
+            } else {
+                // On flat ground after ramp
+                m.y = groundY;
+                // Smoothly level out the angle
+                m.angle = m.angle * 0.9;
+            }
+
+            // Create some dust/smoke during braking
+            if (m.vx > 1 && Math.random() < 0.3) {
+                createParticles(m.screenX + 15, m.y + 15, 1, 'rgba(139, 69, 19, 0.5)');
+            }
+
+            // Check if stopped or slowed enough
+            if (m.vx < 0.5) {
+                // Come to a complete stop
+                m.vx = 0;
+                m.angle = 0;
+                gameState.isLanding = false;
+                gameState.jumpComplete = true;
+
+                // Victory celebration particles
+                createParticles(m.screenX, m.y, 40, '#10b981');
+                createParticles(m.screenX, m.y - 30, 30, '#feca57');
+
+                showResult(true);
+                return;
+            }
+
+            requestAnimationFrame(animateLanding);
         }
 
         // Show result message
@@ -1263,6 +1334,7 @@
         function resetGame() {
             gameState.isJumping = false;
             gameState.isAccelerating = false;
+            gameState.isLanding = false;
             gameState.jumpComplete = false;
             gameState.currentSpeed = 0;
             gameState.motorcycle = null;
