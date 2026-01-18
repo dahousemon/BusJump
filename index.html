@@ -1095,9 +1095,19 @@
             const m = gameState.motorcycle;
             const targetSpeed = gameState.speed;
 
-            // Accelerate smoothly over 5 seconds (ACCELERATION_TIME frames)
-            // Start slow, build up speed gradually
-            const accelerationRate = targetSpeed / ACCELERATION_TIME;
+            // Realistic motorcycle acceleration:
+            // - Strong initial acceleration (high torque at low speed)
+            // - Acceleration decreases as speed increases (air resistance, power curve)
+            // - Approaches top speed asymptotically
+            const speedRatio = gameState.currentSpeed / targetSpeed;
+            const remainingSpeed = targetSpeed - gameState.currentSpeed;
+
+            // Acceleration is proportional to remaining speed (exponential approach)
+            // Plus a base acceleration to ensure we eventually reach top speed
+            const baseAccel = targetSpeed / 600; // Very slow base rate
+            const dynamicAccel = remainingSpeed * 0.02; // Proportional to remaining speed
+            const accelerationRate = baseAccel + dynamicAccel;
+
             gameState.currentSpeed = Math.min(gameState.currentSpeed + accelerationRate, targetSpeed);
             updateSpeedometer();
 
