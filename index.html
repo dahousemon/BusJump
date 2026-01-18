@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Kenville - Motorcycle Jump Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+        }
+
+        #gameCanvas {
+            border: 4px solid #e94560;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+            background: #87CEEB;
+        }
+
+        .controls {
+            background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            min-width: 280px;
+            border: 2px solid #374151;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #feca57;
+            font-size: 0.95em;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #374151;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #e94560;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(233, 69, 96, 0.5);
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            background: #ff6b6b;
+            transform: scale(1.1);
+        }
+
+        .value-display {
+            text-align: center;
+            font-size: 1.5em;
+            color: #10b981;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #jumpBtn {
+            background: linear-gradient(145deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        #jumpBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+        }
+
+        #jumpBtn:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #resetBtn {
+            background: linear-gradient(145deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        #resetBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .stats h3 {
+            color: #feca57;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 5px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+
+        .stat-label {
+            color: #9ca3af;
+        }
+
+        .stat-value {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        #result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            display: none;
+        }
+
+        #result.success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 2px solid #10b981;
+            color: #10b981;
+            display: block;
+        }
+
+        #result.failure {
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid #ef4444;
+            color: #ef4444;
+            display: block;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #6366f1;
+            font-size: 0.85em;
+            color: #a0a0a0;
+        }
+
+        .instructions h4 {
+            color: #6366f1;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏍️ Evil Kenville 🔥</h1>
+    <p class="subtitle">The Legendary Motorcycle Daredevil</p>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>🚀 Speed (MPH)</label>
+                <input type="range" id="speedSlider" min="20" max="100" value="50">
+                <div class="value-display" id="speedValue">50 MPH</div>
+            </div>
+
+            <div class="control-group">
+                <label>📐 Ramp Angle (Degrees)</label>
+                <input type="range" id="angleSlider" min="15" max="60" value="30">
+                <div class="value-display" id="angleValue">30°</div>
+            </div>
+
+            <div class="control-group">
+                <label>🚗 Number of Cars</label>
+                <input type="range" id="carsSlider" min="1" max="15" value="5">
+                <div class="value-display" id="carsValue">5 Cars</div>
+            </div>
+
+            <div class="buttons">
+                <button id="jumpBtn">🏁 JUMP!</button>
+                <button id="resetBtn">🔄 Reset</button>
+            </div>
+
+            <div class="stats">
+                <h3>📊 Jump Statistics</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Distance Required:</span>
+                    <span class="stat-value" id="distanceRequired">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Max Height:</span>
+                    <span class="stat-value" id="maxHeight">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Hang Time:</span>
+                    <span class="stat-value" id="hangTime">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Distance Achieved:</span>
+                    <span class="stat-value" id="distanceAchieved">--</span>
+                </div>
+            </div>
+
+            <div id="result"></div>
+
+            <div class="instructions">
+                <h4>How to Play:</h4>
+                <p>1. Set your speed, ramp angle, and number of cars<br>
+                2. Click JUMP to attempt the stunt<br>
+                3. Watch the physics simulation<br>
+                4. Clear all the cars to succeed!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const GRAVITY = 9.81; // m/s²
+        const SCALE = 15; // pixels per meter
+        const GROUND_Y = canvas.height - 60;
+        const CAR_WIDTH = 35;
+        const CAR_HEIGHT = 20;
+        const CAR_SPACING = 5;
+        const RAMP_WIDTH = 80;
+        const RAMP_BASE_HEIGHT = 10;
+
+        // Game State
+        let gameState = {
+            speed: 50,
+            angle: 30,
+            numCars: 5,
+            isJumping: false,
+            motorcycle: null,
+            jumpComplete: false,
+            trailPoints: [],
+            particles: [],
+            clouds: [],
+            crowdWave: 0
+        };
+
+        // Initialize clouds
+        function initClouds() {
+            gameState.clouds = [];
+            for (let i = 0; i < 5; i++) {
+                gameState.clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: 30 + Math.random() * 80,
+                    size: 30 + Math.random() * 40,
+                    speed: 0.2 + Math.random() * 0.3
+                });
+            }
+        }
+
+        // Draw sky gradient
+        function drawSky() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1e90ff');
+            gradient.addColorStop(0.5, '#87CEEB');
+            gradient.addColorStop(1, '#b0e0e6');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw sun
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(680, 70, 40, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 30;
+            ctx.fill();
+            ctx.restore();
+
+            // Draw clouds
+            gameState.clouds.forEach(cloud => {
+                drawCloud(cloud.x, cloud.y, cloud.size);
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + 50) cloud.x = -50;
+            });
+        }
+
+        function drawCloud(x, y, size) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.4, y - size * 0.1, size * 0.4, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.8, y, size * 0.35, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.4, y + size * 0.2, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw ground with grass
+        function drawGround() {
+            // Dirt layer
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+            // Grass layer
+            const grassGradient = ctx.createLinearGradient(0, GROUND_Y - 15, 0, GROUND_Y + 10);
+            grassGradient.addColorStop(0, '#228B22');
+            grassGradient.addColorStop(1, '#006400');
+            ctx.fillStyle = grassGradient;
+            ctx.fillRect(0, GROUND_Y - 5, canvas.width, 15);
+
+            // Grass blades
+            ctx.strokeStyle = '#32CD32';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < canvas.width; i += 8) {
+                const height = 5 + Math.sin(i * 0.1 + Date.now() * 0.002) * 3;
+                ctx.beginPath();
+                ctx.moveTo(i, GROUND_Y - 5);
+                ctx.lineTo(i + 2, GROUND_Y - 5 - height);
+                ctx.stroke();
+            }
+        }
+
+        // Draw crowd in background
+        function drawCrowd() {
+            gameState.crowdWave += 0.05;
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+
+            for (let i = 0; i < 60; i++) {
+                const x = 150 + i * 10;
+                const baseY = GROUND_Y - 25;
+                const waveOffset = Math.sin(gameState.crowdWave + i * 0.3) * 3;
+
+                // Body
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.beginPath();
+                ctx.ellipse(x, baseY + 10 + waveOffset, 4, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head
+                ctx.fillStyle = '#FFE4C4';
+                ctx.beginPath();
+                ctx.arc(x, baseY + waveOffset, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Draw stadium/bleachers
+        function drawStadium() {
+            // Bleachers
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(100, GROUND_Y - 50, 550, 30);
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(120, GROUND_Y - 70, 510, 25);
+        }
+
+        // Calculate ramp dimensions
+        function getRampHeight() {
+            return RAMP_BASE_HEIGHT + (gameState.angle / 60) * 50;
+        }
+
+        // Draw takeoff ramp
+        function drawTakeoffRamp(x) {
+            const rampHeight = getRampHeight();
+
+            // Ramp structure
+            ctx.fillStyle = '#e94560';
+            ctx.beginPath();
+            ctx.moveTo(x, GROUND_Y);
+            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y);
+            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y - rampHeight);
+            ctx.closePath();
+            ctx.fill();
+
+            // Ramp stripes
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 4; i++) {
+                const startX = x + 15 + i * 15;
+                const startY = GROUND_Y - 5;
+                const endX = startX + 10;
+                const ratio = (endX - x) / RAMP_WIDTH;
+                const endY = GROUND_Y - rampHeight * ratio;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            }
+
+            // Ramp edge highlight
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(x, GROUND_Y);
+            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y - rampHeight);
+            ctx.stroke();
+
+            return { x: x + RAMP_WIDTH, y: GROUND_Y - rampHeight };
+        }
+
+        // Draw landing ramp
+        function drawLandingRamp(x) {
+            const rampHeight = getRampHeight();
+
+            ctx.fillStyle = '#10b981';
+            ctx.beginPath();
+            ctx.moveTo(x, GROUND_Y - rampHeight);
+            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y);
+            ctx.lineTo(x, GROUND_Y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Ramp stripes
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 4; i++) {
+                const startX = x + 15 + i * 15;
+                const ratio = (startX - x) / RAMP_WIDTH;
+                const startY = GROUND_Y - rampHeight * (1 - ratio);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(startX + 10, GROUND_Y - 5);
+                ctx.stroke();
+            }
+
+            // Ramp edge highlight
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(x, GROUND_Y - rampHeight);
+            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y);
+            ctx.stroke();
+        }
+
+        // Draw a cartoon car
+        function drawCar(x, y, color) {
+            // Car body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(x, y - CAR_HEIGHT, CAR_WIDTH, CAR_HEIGHT, 3);
+            ctx.fill();
+
+            // Car roof
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(x + 8, y - CAR_HEIGHT - 10, CAR_WIDTH - 16, 12, 3);
+            ctx.fill();
+
+            // Windows
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(x + 10, y - CAR_HEIGHT - 8, 6, 8);
+            ctx.fillRect(x + 19, y - CAR_HEIGHT - 8, 6, 8);
+
+            // Wheels
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(x + 8, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + CAR_WIDTH - 8, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wheel hubcaps
+            ctx.fillStyle = '#silver';
+            ctx.beginPath();
+            ctx.arc(x + 8, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + CAR_WIDTH - 8, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Headlight
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + CAR_WIDTH - 3, y - CAR_HEIGHT + 5, 3, 4);
+        }
+
+        // Draw cars to jump over
+        function drawCars(startX) {
+            const carColors = ['#e94560', '#feca57', '#10b981', '#6366f1', '#ec4899', '#f97316', '#14b8a6'];
+
+            for (let i = 0; i < gameState.numCars; i++) {
+                const carX = startX + i * (CAR_WIDTH + CAR_SPACING);
+                drawCar(carX, GROUND_Y, carColors[i % carColors.length]);
+            }
+
+            return startX + gameState.numCars * (CAR_WIDTH + CAR_SPACING);
+        }
+
+        // Draw motorcycle with rider
+        function drawMotorcycle(x, y, angle = 0) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Motorcycle body
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gas tank
+            ctx.fillStyle = '#e94560';
+            ctx.beginPath();
+            ctx.ellipse(-5, -5, 10, 6, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tank stripe
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-10, -6, 12, 2);
+
+            // Seat
+            ctx.fillStyle = '#4a4a4a';
+            ctx.beginPath();
+            ctx.ellipse(8, -4, 8, 4, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Handlebars
+            ctx.strokeStyle = '#silver';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-15, -8);
+            ctx.lineTo(-15, -18);
+            ctx.stroke();
+
+            // Front wheel
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-15, 8, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Back wheel
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(15, 8, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Wheel spokes
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 6; i++) {
+                const spokeAngle = (i / 6) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(-15, 8);
+                ctx.lineTo(-15 + Math.cos(spokeAngle) * 8, 8 + Math.sin(spokeAngle) * 8);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(15, 8);
+                ctx.lineTo(15 + Math.cos(spokeAngle) * 8, 8 + Math.sin(spokeAngle) * 8);
+                ctx.stroke();
+            }
+
+            // Exhaust flame during jump
+            if (gameState.isJumping) {
+                ctx.fillStyle = '#ff6b6b';
+                ctx.beginPath();
+                ctx.moveTo(20, 5);
+                ctx.lineTo(35 + Math.random() * 10, 5);
+                ctx.lineTo(20, 10);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#feca57';
+                ctx.beginPath();
+                ctx.moveTo(20, 6);
+                ctx.lineTo(28 + Math.random() * 5, 7);
+                ctx.lineTo(20, 9);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Rider
+            drawRider();
+
+            ctx.restore();
+        }
+
+        // Draw rider on motorcycle
+        function drawRider() {
+            // Legs
+            ctx.fillStyle = '#2563eb';
+            ctx.beginPath();
+            ctx.ellipse(5, -5, 4, 10, 0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.ellipse(-2, -18, 6, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Star on suit
+            ctx.fillStyle = '#feca57';
+            ctx.beginPath();
+            ctx.arc(-2, -18, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Arms
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.moveTo(-5, -22);
+            ctx.lineTo(-15, -15);
+            ctx.lineTo(-13, -12);
+            ctx.lineTo(-3, -18);
+            ctx.closePath();
+            ctx.fill();
+
+            // Helmet
+            ctx.fillStyle = '#1e40af';
+            ctx.beginPath();
+            ctx.arc(-2, -32, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Helmet visor
+            ctx.fillStyle = '#feca57';
+            ctx.beginPath();
+            ctx.arc(-5, -32, 5, Math.PI * 0.7, Math.PI * 1.3);
+            ctx.fill();
+
+            // Helmet stripe
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(-2, -32, 8, -Math.PI * 0.3, Math.PI * 0.3);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+        }
+
+        // Draw trail effect
+        function drawTrail() {
+            if (gameState.trailPoints.length < 2) return;
+
+            ctx.strokeStyle = 'rgba(233, 69, 96, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(gameState.trailPoints[0].x, gameState.trailPoints[0].y);
+
+            for (let i = 1; i < gameState.trailPoints.length; i++) {
+                ctx.lineTo(gameState.trailPoints[i].x, gameState.trailPoints[i].y);
+            }
+            ctx.stroke();
+
+            // Fade old trail points
+            if (gameState.trailPoints.length > 50) {
+                gameState.trailPoints.shift();
+            }
+        }
+
+        // Create particles
+        function createParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                gameState.particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10 - 5,
+                    life: 1,
+                    color: color,
+                    size: 2 + Math.random() * 4
+                });
+            }
+        }
+
+        // Update and draw particles
+        function updateParticles() {
+            gameState.particles = gameState.particles.filter(p => p.life > 0);
+
+            gameState.particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life -= 0.02;
+
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // Calculate jump physics
+        function calculateJump() {
+            const speedMS = gameState.speed * 0.44704; // Convert MPH to m/s
+            const angleRad = gameState.angle * Math.PI / 180;
+
+            const vx = speedMS * Math.cos(angleRad);
+            const vy = speedMS * Math.sin(angleRad);
+
+            // Time of flight: t = 2 * vy / g
+            const hangTime = (2 * vy) / GRAVITY;
+
+            // Horizontal distance: d = vx * t
+            const distance = vx * hangTime;
+
+            // Maximum height: h = vy² / (2 * g)
+            const maxHeight = (vy * vy) / (2 * GRAVITY);
+
+            return { distance, maxHeight, hangTime, vx, vy };
+        }
+
+        // Get required distance to clear cars
+        function getRequiredDistance() {
+            return (gameState.numCars * (CAR_WIDTH + CAR_SPACING)) / SCALE + (RAMP_WIDTH * 2) / SCALE;
+        }
+
+        // Update stats display
+        function updateStats() {
+            const physics = calculateJump();
+            const required = getRequiredDistance();
+
+            document.getElementById('distanceRequired').textContent = required.toFixed(1) + ' m';
+            document.getElementById('maxHeight').textContent = physics.maxHeight.toFixed(1) + ' m';
+            document.getElementById('hangTime').textContent = physics.hangTime.toFixed(2) + ' s';
+            document.getElementById('distanceAchieved').textContent = physics.distance.toFixed(1) + ' m';
+        }
+
+        // Main game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background
+            drawSky();
+            drawStadium();
+            drawCrowd();
+            drawGround();
+
+            // Calculate positions
+            const takeoffX = 50;
+            const takeoffEnd = drawTakeoffRamp(takeoffX);
+
+            const carsStartX = takeoffX + RAMP_WIDTH + 20;
+            const carsEndX = drawCars(carsStartX);
+
+            const landingX = carsEndX + 20;
+            drawLandingRamp(landingX);
+
+            // Draw trail
+            drawTrail();
+
+            // Draw motorcycle
+            if (gameState.motorcycle) {
+                drawMotorcycle(
+                    gameState.motorcycle.x,
+                    gameState.motorcycle.y,
+                    gameState.motorcycle.angle
+                );
+            } else {
+                // Draw motorcycle at starting position
+                const rampHeight = getRampHeight();
+                const startX = takeoffX + 20;
+                const startY = GROUND_Y - (20 / RAMP_WIDTH) * rampHeight - 15;
+                drawMotorcycle(startX, startY, -gameState.angle * Math.PI / 180);
+            }
+
+            // Update particles
+            updateParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start jump animation
+        function startJump() {
+            if (gameState.isJumping) return;
+
+            gameState.isJumping = true;
+            gameState.jumpComplete = false;
+            gameState.trailPoints = [];
+            gameState.particles = [];
+            document.getElementById('jumpBtn').disabled = true;
+            document.getElementById('result').className = '';
+            document.getElementById('result').style.display = 'none';
+
+            const physics = calculateJump();
+            const rampHeight = getRampHeight();
+
+            // Starting position (at top of takeoff ramp)
+            const startX = 50 + RAMP_WIDTH;
+            const startY = GROUND_Y - rampHeight - 15;
+
+            gameState.motorcycle = {
+                x: startX,
+                y: startY,
+                vx: physics.vx * SCALE / 60, // Convert to pixels per frame
+                vy: -physics.vy * SCALE / 60,
+                angle: -gameState.angle * Math.PI / 180,
+                startX: startX,
+                startY: startY
+            };
+
+            // Create takeoff particles
+            createParticles(startX, startY + 20, 20, '#feca57');
+
+            animateJump();
+        }
+
+        // Animate the jump
+        function animateJump() {
+            if (!gameState.motorcycle) return;
+
+            const m = gameState.motorcycle;
+            const rampHeight = getRampHeight();
+            const landingRampX = 50 + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
+            const landingRampEndX = landingRampX + RAMP_WIDTH;
+
+            // Update position
+            m.x += m.vx;
+            m.vy += GRAVITY * SCALE / 3600; // Gravity in pixels per frame²
+            m.y += m.vy;
+
+            // Calculate angle based on velocity
+            m.angle = Math.atan2(m.vy, m.vx);
+
+            // Add trail point
+            gameState.trailPoints.push({ x: m.x, y: m.y });
+
+            // Create smoke particles occasionally
+            if (Math.random() < 0.3) {
+                createParticles(m.x - 20, m.y + 10, 1, 'rgba(100,100,100,0.5)');
+            }
+
+            // Check landing conditions
+            const groundY = GROUND_Y - 15;
+
+            // Check if on landing ramp
+            if (m.x >= landingRampX && m.x <= landingRampEndX) {
+                const rampProgress = (m.x - landingRampX) / RAMP_WIDTH;
+                const rampY = GROUND_Y - rampHeight * (1 - rampProgress) - 15;
+
+                if (m.y >= rampY) {
+                    // Successful landing!
+                    gameState.isJumping = false;
+                    gameState.jumpComplete = true;
+                    m.y = rampY;
+
+                    createParticles(m.x, m.y + 20, 30, '#10b981');
+                    showResult(true);
+                    return;
+                }
+            }
+
+            // Check if hit ground (failed)
+            if (m.y >= groundY && m.x < landingRampX) {
+                gameState.isJumping = false;
+                gameState.jumpComplete = true;
+                m.y = groundY;
+
+                createParticles(m.x, m.y + 20, 30, '#ef4444');
+                showResult(false);
+                return;
+            }
+
+            // Check if past landing ramp (on flat ground after)
+            if (m.x > landingRampEndX && m.y >= groundY) {
+                gameState.isJumping = false;
+                gameState.jumpComplete = true;
+                m.y = groundY;
+
+                createParticles(m.x, m.y + 20, 30, '#10b981');
+                showResult(true);
+                return;
+            }
+
+            // Check if went off screen
+            if (m.x > canvas.width + 50 || m.y > canvas.height + 50) {
+                gameState.isJumping = false;
+                showResult(false);
+                return;
+            }
+
+            requestAnimationFrame(animateJump);
+        }
+
+        // Show result message
+        function showResult(success) {
+            const result = document.getElementById('result');
+            const physics = calculateJump();
+
+            if (success) {
+                result.textContent = '🎉 SUCCESSFUL JUMP! 🏆 Distance: ' + physics.distance.toFixed(1) + 'm';
+                result.className = 'success';
+            } else {
+                result.textContent = '💥 CRASH! Try more speed or different angle!';
+                result.className = 'failure';
+            }
+
+            document.getElementById('jumpBtn').disabled = false;
+        }
+
+        // Reset game
+        function resetGame() {
+            gameState.isJumping = false;
+            gameState.jumpComplete = false;
+            gameState.motorcycle = null;
+            gameState.trailPoints = [];
+            gameState.particles = [];
+            document.getElementById('jumpBtn').disabled = false;
+            document.getElementById('result').className = '';
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Event listeners
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            gameState.speed = parseInt(this.value);
+            document.getElementById('speedValue').textContent = this.value + ' MPH';
+            updateStats();
+        });
+
+        document.getElementById('angleSlider').addEventListener('input', function() {
+            gameState.angle = parseInt(this.value);
+            document.getElementById('angleValue').textContent = this.value + '°';
+            updateStats();
+        });
+
+        document.getElementById('carsSlider').addEventListener('input', function() {
+            gameState.numCars = parseInt(this.value);
+            document.getElementById('carsValue').textContent = this.value + ' Cars';
+            updateStats();
+        });
+
+        document.getElementById('jumpBtn').addEventListener('click', startJump);
+        document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+        // Initialize
+        initClouds();
+        updateStats();
+        gameLoop();
+    </script>
+</body>
+</html>
