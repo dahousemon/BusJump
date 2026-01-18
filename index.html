@@ -1263,8 +1263,8 @@
             const rampHeight = getRampHeight();
             const groundY = GROUND_Y - 18;
 
-            // Decelerate gradually (like braking)
-            const deceleration = 0.15;
+            // Light braking - don't slow down too fast
+            const deceleration = 0.08;
             m.vx = Math.max(0, m.vx - deceleration);
 
             // Update current speed display
@@ -1277,26 +1277,33 @@
             // Update screen position
             m.screenX = m.x - gameState.cameraOffset;
 
-            // If still on landing ramp, follow the ramp surface
-            if (m.x >= m.landingRampX && m.x <= m.landingRampEndX) {
+            // Calculate if we're on the ramp or past it
+            const onRamp = m.x >= m.landingRampX && m.x <= m.landingRampEndX;
+
+            if (onRamp) {
+                // Riding DOWN the landing ramp - follow the slope
                 const rampProgress = (m.x - m.landingRampX) / LANDING_RAMP_WIDTH;
+                // Ramp goes from high (rampHeight) at start to ground level at end
                 m.y = GROUND_Y - rampHeight * (1 - rampProgress) - 18;
+
+                // Angle pointing downward (positive angle = nose down in our coordinate system)
                 const rampAngle = Math.atan2(rampHeight, LANDING_RAMP_WIDTH);
-                m.angle = rampAngle;
-            } else {
-                // On flat ground after ramp
+                m.angle = rampAngle; // Nose points down the slope
+            } else if (m.x > m.landingRampEndX) {
+                // Past the ramp - on flat ground
                 m.y = groundY;
                 // Smoothly level out the angle
-                m.angle = m.angle * 0.9;
+                m.angle = m.angle * 0.85;
+                if (Math.abs(m.angle) < 0.01) m.angle = 0;
             }
 
-            // Create some dust/smoke during braking
-            if (m.vx > 1 && Math.random() < 0.3) {
+            // Create tire dust during riding
+            if (m.vx > 0.5 && Math.random() < 0.4) {
                 createParticles(m.screenX + 15, m.y + 15, 1, 'rgba(139, 69, 19, 0.5)');
             }
 
             // Check if stopped or slowed enough
-            if (m.vx < 0.5) {
+            if (m.vx < 0.3) {
                 // Come to a complete stop
                 m.vx = 0;
                 m.angle = 0;
