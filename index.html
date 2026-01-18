@@ -259,8 +259,6 @@
             <div class="speedometer" id="speedometer">0 MPH</div>
         </div>
 
-        </div>
-
         <div class="controls">
             <div class="control-group">
                 <label>🚀 Speed (MPH)</label>
@@ -329,8 +327,9 @@
         const CAR_SPACING = 5;
         const RAMP_WIDTH = 80;
         const RAMP_BASE_HEIGHT = 10;
-        const RUNWAY_LENGTH = 300; // pixels for the runway
-        const RUNWAY_START = -250; // start off-screen to the left
+        const RUNWAY_LENGTH = 1500; // pixels for the runway (much longer)
+        const RUNWAY_START = -100; // start position
+        const RAMP_WORLD_X = 1400; // ramp is far down the runway
 
         // Game State
         let gameState = {
@@ -457,15 +456,26 @@
             ctx.lineTo(drawEndX, GROUND_Y + 10);
             ctx.stroke();
 
-            // Distance markers
+            // Distance markers every 100 pixels
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 12px Arial';
-            for (let i = 0; i <= RUNWAY_LENGTH; i += 50) {
-                const markerX = drawStartX + i + 250; // offset from RUNWAY_START
-                if (markerX > 0 && markerX < canvas.width) {
-                    ctx.fillText(i + 'm', markerX, GROUND_Y + 25);
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            for (let worldX = 0; worldX <= RAMP_WORLD_X; worldX += 100) {
+                const screenX = worldX - offset;
+                if (screenX > 0 && screenX < canvas.width) {
+                    // Draw marker line
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, GROUND_Y - 5);
+                    ctx.lineTo(screenX, GROUND_Y - 15);
+                    ctx.stroke();
+                    // Draw distance text
+                    const distanceInFeet = Math.round(worldX / SCALE * 3.28); // convert to feet
+                    ctx.fillText(distanceInFeet + 'ft', screenX, GROUND_Y + 30);
                 }
             }
+            ctx.textAlign = 'left';
         }
 
         // Update speedometer display
@@ -898,10 +908,10 @@
 
             // Calculate positions with camera offset
             const offset = gameState.cameraOffset;
-            const takeoffX = 250 - offset; // Ramp is at x=250 in world coordinates
+            const takeoffX = RAMP_WORLD_X - offset; // Ramp position on screen
 
-            // Draw runway (from off-screen left to the ramp)
-            drawRunway(RUNWAY_START, 250);
+            // Draw runway (from start to past the ramp)
+            drawRunway(RUNWAY_START, RAMP_WORLD_X + 500);
 
             const takeoffEnd = drawTakeoffRamp(takeoffX);
 
@@ -971,10 +981,10 @@
 
             const m = gameState.motorcycle;
             const targetSpeed = gameState.speed;
-            const rampWorldX = 250; // Ramp position in world coordinates
 
-            // Accelerate (increase speed gradually)
-            const accelerationRate = 0.5; // MPH per frame
+            // Accelerate smoothly - rate depends on target speed to ensure ~1.5 second acceleration
+            // At 60fps, 1.5 seconds = 90 frames
+            const accelerationRate = targetSpeed / 90; // MPH per frame
             gameState.currentSpeed = Math.min(gameState.currentSpeed + accelerationRate, targetSpeed);
             updateSpeedometer();
 
@@ -982,19 +992,19 @@
             const speedPxPerFrame = (gameState.currentSpeed * 0.44704 * SCALE) / 60;
             m.x += speedPxPerFrame;
 
-            // Update camera to follow motorcycle (keep bike at left side of screen)
-            if (m.x > 100) {
-                gameState.cameraOffset = m.x - 100;
+            // Update camera to follow motorcycle (keep bike centered-left on screen)
+            if (m.x > 150) {
+                gameState.cameraOffset = m.x - 150;
             }
             m.screenX = m.x - gameState.cameraOffset;
 
-            // Create tire smoke particles occasionally during acceleration
-            if (gameState.currentSpeed < targetSpeed && Math.random() < 0.4) {
+            // Create tire smoke particles occasionally during hard acceleration
+            if (gameState.currentSpeed < targetSpeed * 0.8 && Math.random() < 0.5) {
                 createParticles(m.screenX + 15, m.y + 10, 2, 'rgba(150,150,150,0.6)');
             }
 
             // Check if reached the ramp
-            if (m.x >= rampWorldX - 30) {
+            if (m.x >= RAMP_WORLD_X - 30) {
                 // Transition to jump phase
                 gameState.isAccelerating = false;
                 gameState.isJumping = true;
@@ -1003,14 +1013,14 @@
                 const rampHeight = getRampHeight();
 
                 // Position at top of ramp
-                m.x = rampWorldX + RAMP_WIDTH;
+                m.x = RAMP_WORLD_X + RAMP_WIDTH;
                 m.y = GROUND_Y - rampHeight - 15;
                 m.vx = physics.vx * SCALE / 60;
                 m.vy = -physics.vy * SCALE / 60;
                 m.angle = -gameState.angle * Math.PI / 180;
 
                 // Freeze camera for the jump
-                gameState.cameraOffset = rampWorldX - 150;
+                gameState.cameraOffset = RAMP_WORLD_X - 150;
 
                 // Create takeoff particles
                 createParticles(m.x - gameState.cameraOffset, m.y + 20, 20, '#feca57');
@@ -1020,8 +1030,8 @@
             }
 
             // Animate going up the ramp
-            if (m.x >= rampWorldX - 30 && m.x < rampWorldX + RAMP_WIDTH) {
-                const rampProgress = (m.x - (rampWorldX - 30)) / (RAMP_WIDTH + 30);
+            if (m.x >= RAMP_WORLD_X - 30 && m.x < RAMP_WORLD_X + RAMP_WIDTH) {
+                const rampProgress = (m.x - (RAMP_WORLD_X - 30)) / (RAMP_WIDTH + 30);
                 const rampHeight = getRampHeight();
                 m.y = GROUND_Y - 18 - (rampProgress * rampHeight);
                 m.angle = -gameState.angle * Math.PI / 180;
@@ -1037,8 +1047,7 @@
             const m = gameState.motorcycle;
             const offset = gameState.cameraOffset;
             const rampHeight = getRampHeight();
-            const rampWorldX = 250;
-            const landingRampX = rampWorldX + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
+            const landingRampX = RAMP_WORLD_X + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
             const landingRampEndX = landingRampX + RAMP_WIDTH;
 
             // Update position
