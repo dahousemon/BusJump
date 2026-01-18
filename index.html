@@ -328,9 +328,10 @@
         const RAMP_WIDTH = 80;
         const LANDING_RAMP_WIDTH = 150; // landing ramp is wider for easier landing
         const RAMP_BASE_HEIGHT = 10;
-        const RUNWAY_LENGTH = 1500; // pixels for the runway (much longer)
+        const RUNWAY_LENGTH = 5000; // pixels for the runway (very long)
         const RUNWAY_START = -100; // start position
-        const RAMP_WORLD_X = 1400; // ramp is far down the runway
+        const RAMP_WORLD_X = 4500; // ramp is far down the runway
+        const ACCELERATION_TIME = 300; // 5 seconds at 60fps
 
         // Game State
         let gameState = {
@@ -346,8 +347,109 @@
             particles: [],
             clouds: [],
             crowdWave: 0,
-            cameraOffset: 0
+            cameraOffset: 0,
+            scenery: [] // Background objects for parallax scrolling
         };
+
+        // Initialize background scenery
+        function initScenery() {
+            gameState.scenery = [];
+            // Create trees, signs, and other objects along the runway
+            for (let x = 200; x < RAMP_WORLD_X + 500; x += 150 + Math.random() * 100) {
+                const type = Math.random();
+                if (type < 0.4) {
+                    // Tree
+                    gameState.scenery.push({
+                        x: x,
+                        type: 'tree',
+                        height: 40 + Math.random() * 30,
+                        color: ['#228B22', '#2E8B57', '#006400'][Math.floor(Math.random() * 3)]
+                    });
+                } else if (type < 0.6) {
+                    // Distance sign
+                    gameState.scenery.push({
+                        x: x,
+                        type: 'sign',
+                        distance: Math.round(x / SCALE * 3.28) // feet
+                    });
+                } else if (type < 0.8) {
+                    // Light pole
+                    gameState.scenery.push({
+                        x: x,
+                        type: 'pole'
+                    });
+                } else {
+                    // Barrier/fence
+                    gameState.scenery.push({
+                        x: x,
+                        type: 'barrier'
+                    });
+                }
+            }
+        }
+
+        // Draw background scenery with parallax
+        function drawScenery() {
+            const offset = gameState.cameraOffset;
+
+            gameState.scenery.forEach(obj => {
+                const screenX = obj.x - offset;
+
+                // Only draw if on screen
+                if (screenX < -50 || screenX > canvas.width + 50) return;
+
+                if (obj.type === 'tree') {
+                    // Tree trunk
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(screenX - 5, GROUND_Y - obj.height, 10, obj.height - 10);
+                    // Tree foliage
+                    ctx.fillStyle = obj.color;
+                    ctx.beginPath();
+                    ctx.arc(screenX, GROUND_Y - obj.height, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(screenX - 15, GROUND_Y - obj.height + 10, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(screenX + 15, GROUND_Y - obj.height + 10, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (obj.type === 'sign') {
+                    // Sign post
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(screenX - 3, GROUND_Y - 60, 6, 55);
+                    // Sign board
+                    ctx.fillStyle = '#1a5f1a';
+                    ctx.fillRect(screenX - 30, GROUND_Y - 80, 60, 25);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(obj.distance + 'ft', screenX, GROUND_Y - 63);
+                    ctx.textAlign = 'left';
+                } else if (obj.type === 'pole') {
+                    // Light pole
+                    ctx.fillStyle = '#555';
+                    ctx.fillRect(screenX - 3, GROUND_Y - 90, 6, 85);
+                    // Light fixture
+                    ctx.fillStyle = '#888';
+                    ctx.fillRect(screenX - 15, GROUND_Y - 95, 30, 8);
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(screenX, GROUND_Y - 91, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (obj.type === 'barrier') {
+                    // Safety barrier
+                    ctx.fillStyle = '#ff4444';
+                    ctx.fillRect(screenX - 20, GROUND_Y - 25, 40, 5);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(screenX - 15, GROUND_Y - 25, 10, 5);
+                    ctx.fillRect(screenX + 5, GROUND_Y - 25, 10, 5);
+                    // Posts
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(screenX - 18, GROUND_Y - 25, 4, 25);
+                    ctx.fillRect(screenX + 14, GROUND_Y - 25, 4, 25);
+                }
+            });
+        }
 
         // Initialize clouds
         function initClouds() {
@@ -918,13 +1020,19 @@
             // Draw runway (from start to past the ramp)
             drawRunway(RUNWAY_START, RAMP_WORLD_X + 500);
 
-            const takeoffEnd = drawTakeoffRamp(takeoffX);
+            // Draw background scenery (trees, signs, etc.)
+            drawScenery();
 
-            const carsStartX = takeoffX + RAMP_WIDTH + 20;
-            const carsEndX = drawCars(carsStartX);
+            // Only draw ramp and cars if they're on screen (takeoffX < canvas width + buffer)
+            if (takeoffX < canvas.width + 100) {
+                const takeoffEnd = drawTakeoffRamp(takeoffX);
 
-            const landingX = carsEndX + 20;
-            drawLandingRamp(landingX);
+                const carsStartX = takeoffX + RAMP_WIDTH + 20;
+                const carsEndX = drawCars(carsStartX);
+
+                const landingX = carsEndX + 20;
+                drawLandingRamp(landingX);
+            }
 
             // Draw trail
             drawTrail();
@@ -987,9 +1095,9 @@
             const m = gameState.motorcycle;
             const targetSpeed = gameState.speed;
 
-            // Accelerate smoothly - rate depends on target speed to ensure ~1.5 second acceleration
-            // At 60fps, 1.5 seconds = 90 frames
-            const accelerationRate = targetSpeed / 90; // MPH per frame
+            // Accelerate smoothly over 5 seconds (ACCELERATION_TIME frames)
+            // Start slow, build up speed gradually
+            const accelerationRate = targetSpeed / ACCELERATION_TIME;
             gameState.currentSpeed = Math.min(gameState.currentSpeed + accelerationRate, targetSpeed);
             updateSpeedometer();
 
@@ -997,10 +1105,9 @@
             const speedPxPerFrame = (gameState.currentSpeed * 0.44704 * SCALE) / 60;
             m.x += speedPxPerFrame;
 
-            // Update camera to follow motorcycle (keep bike centered-left on screen)
-            if (m.x > 150) {
-                gameState.cameraOffset = m.x - 150;
-            }
+            // Smooth camera follow - keeps motorcycle on left third of screen
+            const targetCameraOffset = Math.max(0, m.x - 200);
+            gameState.cameraOffset += (targetCameraOffset - gameState.cameraOffset) * 0.1; // Smooth lerp
             m.screenX = m.x - gameState.cameraOffset;
 
             // Create tire smoke particles occasionally during hard acceleration
@@ -1182,6 +1289,7 @@
 
         // Initialize
         initClouds();
+        initScenery();
         updateStats();
         gameLoop();
     </script>
