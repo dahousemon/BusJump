@@ -326,6 +326,7 @@
         const CAR_HEIGHT = 20;
         const CAR_SPACING = 5;
         const RAMP_WIDTH = 80;
+        const LANDING_RAMP_WIDTH = 150; // landing ramp is wider for easier landing
         const RAMP_BASE_HEIGHT = 10;
         const RUNWAY_LENGTH = 1500; // pixels for the runway (much longer)
         const RUNWAY_START = -100; // start position
@@ -574,14 +575,14 @@
             return { x: x + RAMP_WIDTH, y: GROUND_Y - rampHeight };
         }
 
-        // Draw landing ramp
+        // Draw landing ramp (wider for easier landing)
         function drawLandingRamp(x) {
             const rampHeight = getRampHeight();
 
             ctx.fillStyle = '#10b981';
             ctx.beginPath();
             ctx.moveTo(x, GROUND_Y - rampHeight);
-            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y);
+            ctx.lineTo(x + LANDING_RAMP_WIDTH, GROUND_Y);
             ctx.lineTo(x, GROUND_Y);
             ctx.closePath();
             ctx.fill();
@@ -589,13 +590,13 @@
             // Ramp stripes
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 3;
-            for (let i = 0; i < 4; i++) {
-                const startX = x + 15 + i * 15;
-                const ratio = (startX - x) / RAMP_WIDTH;
+            for (let i = 0; i < 6; i++) {
+                const startX = x + 15 + i * 22;
+                const ratio = (startX - x) / LANDING_RAMP_WIDTH;
                 const startY = GROUND_Y - rampHeight * (1 - ratio);
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
-                ctx.lineTo(startX + 10, GROUND_Y - 5);
+                ctx.lineTo(startX + 15, GROUND_Y - 5);
                 ctx.stroke();
             }
 
@@ -604,8 +605,12 @@
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(x, GROUND_Y - rampHeight);
-            ctx.lineTo(x + RAMP_WIDTH, GROUND_Y);
+            ctx.lineTo(x + LANDING_RAMP_WIDTH, GROUND_Y);
             ctx.stroke();
+
+            // Landing zone marker
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+            ctx.fillRect(x, GROUND_Y - rampHeight, LANDING_RAMP_WIDTH, rampHeight);
         }
 
         // Draw a cartoon car
@@ -1048,7 +1053,7 @@
             const offset = gameState.cameraOffset;
             const rampHeight = getRampHeight();
             const landingRampX = RAMP_WORLD_X + RAMP_WIDTH + 20 + gameState.numCars * (CAR_WIDTH + CAR_SPACING) + 20;
-            const landingRampEndX = landingRampX + RAMP_WIDTH;
+            const landingRampEndX = landingRampX + LANDING_RAMP_WIDTH;
 
             // Update position
             m.x += m.vx;
@@ -1074,7 +1079,7 @@
 
             // Check if on landing ramp
             if (m.x >= landingRampX && m.x <= landingRampEndX) {
-                const rampProgress = (m.x - landingRampX) / RAMP_WIDTH;
+                const rampProgress = (m.x - landingRampX) / LANDING_RAMP_WIDTH;
                 const rampY = GROUND_Y - rampHeight * (1 - rampProgress) - 15;
 
                 if (m.y >= rampY) {
